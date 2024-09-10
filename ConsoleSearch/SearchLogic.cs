@@ -1,22 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace ConsoleSearch
 {
     public class SearchLogic
     {
-        private readonly HttpClient _api = new() { BaseAddress = new Uri("http://localhost:5088/api") };
+        private readonly HttpClient _api = new() { BaseAddress = new Uri("http://word-service") };
         private readonly Dictionary<string, int> _mWords;
 
         public SearchLogic()
         {
-            const string url = "Document";
-            var response = _api.Send(new HttpRequestMessage(HttpMethod.Get, url));
+            var response = _api.Send(new HttpRequestMessage(HttpMethod.Get, "Word"));
             var content = response.Content.ReadAsStringAsync().Result;
+            Console.WriteLine(JsonSerializer.Serialize(response));
+            Console.WriteLine(JsonSerializer.Serialize(response.ReasonPhrase));
 
-            _mWords = JsonConvert.DeserializeObject<Dictionary<string, int>>(content);
+            Console.WriteLine(JsonSerializer.Serialize(content));
+            _mWords = JsonSerializer.Deserialize<Dictionary<string, int>>(content);
+
+            Console.WriteLine(_mWords.Count);
+            foreach(var word in _mWords){
+                Console.WriteLine(word.Key);
+            }
         }
 
         public int GetIdOf(string word)
@@ -30,7 +37,7 @@ namespace ConsoleSearch
             var response = _api.Send(new HttpRequestMessage(HttpMethod.Get, url));
             var content = response.Content.ReadAsStringAsync().Result;
 
-            return JsonConvert.DeserializeObject<Dictionary<int, int>>(content);
+            return JsonSerializer.Deserialize<Dictionary<int, int>>(content);
         }
 
         public List<string> GetDocumentDetails(IEnumerable<int> docIds)
@@ -39,7 +46,7 @@ namespace ConsoleSearch
             var response = _api.Send(new HttpRequestMessage(HttpMethod.Get, url));
             var content = response.Content.ReadAsStringAsync().Result;
 
-            return JsonConvert.DeserializeObject<List<string>>(content);
+            return JsonSerializer.Deserialize<List<string>>(content);
         }
     }
 }

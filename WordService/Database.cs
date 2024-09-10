@@ -1,15 +1,13 @@
-using Npgsql;
+using Microsoft.Data.SqlClient;
 
 namespace WordService
 {
     public class Database
     {
-        private static Database _instance;
-        private NpgsqlConnection _connection;
-        private const string TargetDatabaseName = "searchdb";
-        private const string ConnectionStringWithoutDb = "Host=localhost;Port=5433;Username=postgres;Password=password;";
-        private const string ConnectionStringWithDb = "Host=localhost;Port=5433;Database=searchdb;Username=postgres;Password=password;";
-
+        private static Database? _instance;
+        private SqlConnection _connection;
+        private const string ConnectionString = "Server=word-db;User Id=sa;Password=SuperSecret7!;Encrypt=false";
+        
         // Singleton GetInstance method
         public static Database GetInstance()
         {
@@ -23,56 +21,20 @@ namespace WordService
         // Private constructor to prevent external instantiation
         private Database()
         {
-            EnsureDatabaseExists();  // Ensure the database exists before connecting to it
-
             // Connect to the target database
-            _connection = new NpgsqlConnection(ConnectionStringWithDb);
+            _connection = new SqlConnection(ConnectionString);
             _connection.Open();
         }
 
-        // Ensure that the target database exists, otherwise create it
-        private void EnsureDatabaseExists()
-        {
-            try
-            {
-                // Try to connect to the target database
-                using var testConnection = new NpgsqlConnection(ConnectionStringWithDb);
-                testConnection.Open();
-                testConnection.Close();
-            }
-            catch (NpgsqlException ex)
-            {
-                // If the database does not exist, catch the exception and create it
-                if (ex.Message.Contains("does not exist"))
-                {
-                    CreateDatabase();
-                }
-                else
-                {
-                    throw;  // If it's another issue, rethrow the exception
-                }
-            }
-        }
-
-        // Method to create the database if it doesn't exist
-        private void CreateDatabase()
-        {
-            // Connect to the postgres database (default database)
-            using var connection = new NpgsqlConnection(ConnectionStringWithoutDb);
-            connection.Open();
-
-            // Create the target database
-            using var cmd = new NpgsqlCommand($"CREATE DATABASE {TargetDatabaseName};", connection);
-            cmd.ExecuteNonQuery();
-
-            connection.Close();
-        }
+    
 
         // Method to execute SQL commands
         private void Execute(string sql)
-        {
+        {  
             using var trans = _connection.BeginTransaction();
-            var cmd = new NpgsqlCommand(sql, _connection, trans);
+            var cmd = _connection.CreateCommand();
+            cmd.Transaction = trans;
+            cmd.CommandText = sql;
             cmd.ExecuteNonQuery();
             trans.Commit();
         }
@@ -96,11 +58,11 @@ namespace WordService
             Execute("DROP TABLE IF EXISTS Documents");
 
             // Recreate the Documents table
-            Execute("CREATE TABLE Documents(id SERIAL PRIMARY KEY, url VARCHAR(500))");
+            Execute("CREATE TABLE Documents(id INTEGER PRIMARY KEY, url VARCHAR(500))");
 
             // Recreate the Words table
-            Execute("CREATE TABLE Words(id SERIAL PRIMARY KEY, name VARCHAR(500))");
-
+            Execute("CREATE TABLE Words(id INTEGER PRIMARY KEY, name VARCHAR(500))");
+            Console.WriteLine("HEP");
             // Recreate the Occurrences table
             Execute("CREATE TABLE Occurrences(wordId INTEGER, docId INTEGER, "
                     + "FOREIGN KEY (wordId) REFERENCES Words(id), "
@@ -113,9 +75,15 @@ namespace WordService
         // Method to insert documents
         public void InsertDocument(int id, string url)
         {
-            var insertCmd = new NpgsqlCommand("INSERT INTO Documents(id, url) VALUES(@id, @url)", _connection);
-            insertCmd.Parameters.AddWithValue("@id", id);
-            insertCmd.Parameters.AddWithValue("@url", url);
+            var insertCmd = _connection.CreateCommand();
+            insertCmd.CommandText = "INSERT INTO Documents(id, url) VALUES(@id,@url)";
+
+            var pName = new SqlParameter("url", url);
+            insertCmd.Parameters.Add(pName);
+
+            var pCount = new SqlParameter("id", id);
+            insertCmd.Parameters.Add(pCount);
+
             insertCmd.ExecuteNonQuery();
         }
 
@@ -123,15 +91,23 @@ namespace WordService
         internal void InsertAllWords(Dictionary<string, int> words)
         {
             using var transaction = _connection.BeginTransaction();
-            var command = new NpgsqlCommand("INSERT INTO Words(id, name) VALUES(@id, @name)", _connection, transaction);
+            var command = _connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = @"INSERT INTO Words(id, name) VALUES(@id,@name)";
 
-            command.Parameters.Add(new NpgsqlParameter("id", NpgsqlTypes.NpgsqlDbType.Integer));
-            command.Parameters.Add(new NpgsqlParameter("name", NpgsqlTypes.NpgsqlDbType.Varchar));
+            var paramName = command.CreateParameter();
+            paramName.ParameterName = "name";
+            command.Parameters.Add(paramName);
 
-            foreach (var word in words)
+            var paramId = command.CreateParameter();
+            paramId.ParameterName = "id";
+            command.Parameters.Add(paramId);
+
+            // Insert all entries in words
+            foreach (var p in words)
             {
-                command.Parameters["id"].Value = word.Value;
-                command.Parameters["name"].Value = word.Key;
+                paramName.Value = p.Key;
+                paramId.Value = p.Value;
                 command.ExecuteNonQuery();
             }
 
@@ -142,15 +118,24 @@ namespace WordService
         internal void InsertAllOccurrences(int docId, ISet<int> wordIds)
         {
             using var transaction = _connection.BeginTransaction();
-            var command = new NpgsqlCommand("INSERT INTO Occurrences(wordId, docId) VALUES(@wordId, @docId)", _connection, transaction);
+            var command = _connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = @"INSERT INTO Occurrences(wordId, docId) VALUES(@wordId,@docId)";
 
-            command.Parameters.Add(new NpgsqlParameter("wordId", NpgsqlTypes.NpgsqlDbType.Integer));
-            command.Parameters.Add(new NpgsqlParameter("docId", NpgsqlTypes.NpgsqlDbType.Integer));
-            command.Parameters["docId"].Value = docId;
+            var paramwordId = command.CreateParameter();
+            paramwordId.ParameterName = "wordId";
+               
+            command.Parameters.Add(paramwordId);
 
-            foreach (var wordId in wordIds)
+            var paramDocId = command.CreateParameter();
+            paramDocId.ParameterName = "docId";
+            paramDocId.Value = docId;
+
+            command.Parameters.Add(paramDocId);
+
+            foreach (var p in wordIds)
             {
-                command.Parameters["wordId"].Value = wordId;
+                paramwordId.Value = p;
                 command.ExecuteNonQuery();
             }
 
@@ -160,19 +145,25 @@ namespace WordService
         // Method to get documents containing specific words
         public Dictionary<int, int> GetDocuments(List<int> wordIds)
         {
-            var result = new Dictionary<int, int>();
-            var sql = $"SELECT docId, COUNT(wordId) AS count FROM Occurrences WHERE wordId IN {AsString(wordIds)} GROUP BY docId ORDER BY count DESC;";
+            var res = new Dictionary<int, int>();
 
-            using var selectCmd = new NpgsqlCommand(sql, _connection);
-            using var reader = selectCmd.ExecuteReader();
-            while (reader.Read())
+            var sql = @"SELECT docId, COUNT(wordId) AS count FROM Occurrences WHERE wordId IN " + AsString(wordIds) + " GROUP BY docId ORDER BY count DESC;";
+
+            var selectCmd = _connection.CreateCommand();
+            selectCmd.CommandText = sql;
+
+            using (var reader = selectCmd.ExecuteReader())
             {
-                var docId = reader.GetInt32(0);
-                var count = reader.GetInt32(1);
-                result.Add(docId, count);
+                while (reader.Read())
+                {
+                    var docId = reader.GetInt32(0);
+                    var count = reader.GetInt32(1);
+                   
+                    res.Add(docId, count);
+                }
             }
 
-            return result;
+            return res;
         }
 
         // Helper method to convert list of integers to SQL-friendly string format
@@ -184,34 +175,43 @@ namespace WordService
         // Method to get all words
         public Dictionary<string, int> GetAllWords()
         {
-            var result = new Dictionary<string, int>();
-            var selectCmd = new NpgsqlCommand("SELECT * FROM Words", _connection);
+            Dictionary<string, int> res = new Dictionary<string, int>();
+      
+            var selectCmd = _connection.CreateCommand();
+            selectCmd.CommandText = "SELECT * FROM Words";
 
-            using var reader = selectCmd.ExecuteReader();
-            while (reader.Read())
+            using (var reader = selectCmd.ExecuteReader())
             {
-                var id = reader.GetInt32(0);
-                var word = reader.GetString(1);
-                result.Add(word, id);
+                while (reader.Read())
+                {
+                    var id = reader.GetInt32(0);
+                    var w = reader.GetString(1);
+                    
+                    res.Add(w, id);
+                }
             }
-
-            return result;
+            return res;
         }
 
         // Method to get document details
         public List<string> GetDocDetails(List<int> docIds)
         {
-            var result = new List<string>();
-            var selectCmd = new NpgsqlCommand("SELECT * FROM Documents WHERE id IN " + AsString(docIds), _connection);
+            List<string> res = new List<string>();
 
-            using var reader = selectCmd.ExecuteReader();
-            while (reader.Read())
+            var selectCmd = _connection.CreateCommand();
+            selectCmd.CommandText = "SELECT * FROM Documents WHERE id IN " + AsString(docIds);
+
+            using (var reader = selectCmd.ExecuteReader())
             {
-                var url = reader.GetString(1);
-                result.Add(url);
-            }
+                while (reader.Read())
+                {
+                    var id = reader.GetInt32(0);
+                    var url = reader.GetString(1);
 
-            return result;
+                    res.Add(url);
+                }
+            }
+            return res;
         }
     }
 }

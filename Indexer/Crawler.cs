@@ -13,7 +13,7 @@ namespace Indexer
         private readonly Dictionary<string, int> _words = new ();
         private readonly Dictionary<string, int> _documents = new ();
 
-        private readonly HttpClient _api = new() { BaseAddress = new Uri("http://localhost:5088/api") };
+        private readonly HttpClient _api = new() { BaseAddress = new Uri("http://word-service") };
         //Return a dictionary containing all words (as the key)in the file
         // [f] and the value is the number of occurrences of the key in file.
         private ISet<string> ExtractWordsInFile(FileInfo f)

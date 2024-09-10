@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 
 namespace Indexer
 {
@@ -10,10 +11,14 @@ namespace Indexer
     {
         public void Run()
         {
+            var api = new HttpClient() { BaseAddress = new Uri("http://word-service") };
+           var d =  api.Send(new HttpRequestMessage(HttpMethod.Delete, "DbManagement"));
+            var dd = api.Send(new HttpRequestMessage(HttpMethod.Post, "DbManagement"));    
+                Console.WriteLine("DONE2 " + JsonSerializer.Serialize(dd));
+
+                
             var crawler = new Crawler();
-            var api = new HttpClient() { BaseAddress = new Uri("http://localhost:5088") };
-            api.Send(new HttpRequestMessage(HttpMethod.Delete, "Database"));
-            api.Send(new HttpRequestMessage(HttpMethod.Post, "Database"));    
+
             var directoryArray = new DirectoryInfo("maildir").GetDirectories();
             var directories = new List<DirectoryInfo>(directoryArray).OrderBy(d => d.Name).AsEnumerable();
             

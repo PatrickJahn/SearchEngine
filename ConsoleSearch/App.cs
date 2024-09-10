@@ -22,6 +22,7 @@ namespace ConsoleSearch
                 var searchTerms = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
                 foreach (var t in searchTerms)
                 {
+
                     int id = mSearchLogic.GetIdOf(t);
                     if (id != -1)
                     {

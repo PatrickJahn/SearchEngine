@@ -6,8 +6,8 @@
     <AssemblyName>Indexer</AssemblyName>
     <RootNamespace>Indexer</RootNamespace>
     <LangVersion>10</LangVersion>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
-
   <ItemGroup>
     <None Remove="SQLitePCLRaw.core" />
     <None Remove="Microsoft.Data.Sqlite.Core" />

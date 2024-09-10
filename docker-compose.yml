@@ -6,6 +6,30 @@ services:
       ACCEPT_EULA: "Y"
     volumes:
       - mssql-data:/var/opt/mssql
+  
+  indexer-service:
+    build:
+      context: .
+      dockerfile: Indexer/Dockerfile
+    depends_on:
+      - word-service
+
+  console-search-service:
+    build:
+      context: .
+      dockerfile: ConsoleSearch/Dockerfile
+    depends_on:
+      - word-service
+  
+  word-service:
+    build:
+      context: .
+      dockerfile: WordService/Dockerfile
+    depends_on:
+      - word-db
+    deploy:
+      replicas: 2
+    
 
 volumes:
   mssql-data:
