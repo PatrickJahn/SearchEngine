@@ -41,12 +41,11 @@ namespace WordService
         {
             foreach (var connection in _coordinator.GetAllConnections())
             {
-                using (connection)
-                {
+              
                     Execute(connection, "DROP TABLE IF EXISTS Occurrences");
                     Execute(connection, "DROP TABLE IF EXISTS Words");
                     Execute(connection, "DROP TABLE IF EXISTS Documents");
-                }
+                
             }
         }
 
@@ -55,18 +54,15 @@ namespace WordService
         {
             foreach (var connection in _coordinator.GetAllConnections())
             {
-                using (connection)
-                {
-                    Execute(connection, "DROP TABLE IF EXISTS Occurrences");
-                    Execute(connection, "DROP TABLE IF EXISTS Words");
-                    Execute(connection, "DROP TABLE IF EXISTS Documents");
+             
+                Execute(connection, "DROP TABLE IF EXISTS Occurrences");
+                Execute(connection, "DROP TABLE IF EXISTS Words");
+                Execute(connection, "DROP TABLE IF EXISTS Documents");
 
-                    Execute(connection, "CREATE TABLE Documents(id INTEGER PRIMARY KEY, url VARCHAR(500))");
-                    Execute(connection, "CREATE TABLE Words(id INTEGER PRIMARY KEY, name VARCHAR(500))");
-                    Execute(connection, "CREATE TABLE Occurrences(wordId INTEGER, docId INTEGER, "
-                                        + "FOREIGN KEY (wordId) REFERENCES Words(id), "
-                                        + "FOREIGN KEY (docId) REFERENCES Documents(id))");
-                }
+                Execute(connection, "CREATE TABLE Documents(id INTEGER PRIMARY KEY, url VARCHAR(500))");
+                Execute(connection, "CREATE TABLE Words(id INTEGER PRIMARY KEY, name VARCHAR(500))");
+                Execute(connection, "CREATE TABLE Occurrences(wordId INTEGER, docId INTEGER)");
+            
             }
         }
 
@@ -75,8 +71,8 @@ namespace WordService
         {
             try
             {
-                using var connection = _coordinator.GetDocumentConnection();
-                using var insertCmd = connection.CreateCommand();
+                var connection = _coordinator.GetDocumentConnection();
+                var insertCmd = connection.CreateCommand();
                 insertCmd.CommandText = "INSERT INTO Documents(id, url) VALUES(@id,@url)";
 
                 var pUrl = new SqlParameter("url", url);
@@ -97,7 +93,7 @@ namespace WordService
         {
             foreach (var word in words)
             {
-                using var connection = _coordinator.GetWordConnection(word.Key);
+                var connection = _coordinator.GetWordConnection(word.Key);
                 using var transaction = connection.BeginTransaction();
                 try
                 {
@@ -130,7 +126,7 @@ namespace WordService
         // Method to insert occurrences
         internal void InsertAllOccurrences(int docId, ISet<int> wordIds)
         {
-            using var connection = _coordinator.GetOccurrenceConnection();
+            var connection = _coordinator.GetOccurrenceConnection();
             using var transaction = connection.BeginTransaction();
             try
             {
@@ -168,9 +164,9 @@ namespace WordService
             var res = new Dictionary<int, int>();
             try
             {
-                using var connection = _coordinator.GetOccurrenceConnection();
+                var connection = _coordinator.GetOccurrenceConnection();
                 var sql = @"SELECT docId, COUNT(wordId) AS count FROM Occurrences WHERE wordId IN " + AsString(wordIds) + " GROUP BY docId ORDER BY count DESC;";
-                using var selectCmd = connection.CreateCommand();
+                var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = sql;
 
                 using (var reader = selectCmd.ExecuteReader())
@@ -204,8 +200,7 @@ namespace WordService
             {
                 foreach (var connection in _coordinator.GetAllWordConnections())
                 {
-                    using (connection)
-                    {
+               
                         var selectCmd = connection.CreateCommand();
                         selectCmd.CommandText = "SELECT * FROM Words";
 
@@ -218,7 +213,6 @@ namespace WordService
                                 res.Add(word, id);
                             }
                         }
-                    }
                 }
             }
             catch (SqlException ex)
@@ -234,7 +228,7 @@ namespace WordService
             var res = new List<string>();
             try
             {
-                using var connection = _coordinator.GetDocumentConnection();
+                var connection = _coordinator.GetDocumentConnection();
                 var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = "SELECT * FROM Documents WHERE id IN " + AsString(docIds);
 

@@ -14,16 +14,9 @@ namespace ConsoleSearch
         {
             var response = _api.Send(new HttpRequestMessage(HttpMethod.Get, "Word"));
             var content = response.Content.ReadAsStringAsync().Result;
-            Console.WriteLine(JsonSerializer.Serialize(response));
-            Console.WriteLine(JsonSerializer.Serialize(response.ReasonPhrase));
-
-            Console.WriteLine(JsonSerializer.Serialize(content));
+        
             _mWords = JsonSerializer.Deserialize<Dictionary<string, int>>(content);
-
-            Console.WriteLine(_mWords.Count);
-            foreach(var word in _mWords){
-                Console.WriteLine(word.Key);
-            }
+            
         }
 
         public int GetIdOf(string word)
