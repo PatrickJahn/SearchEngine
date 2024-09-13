@@ -9,14 +9,14 @@ public class WordController : ControllerBase
     private readonly Database _database = Database.GetInstance();
 
     [HttpGet]
-    public Dictionary<string, int> Get()
+    public async Task<Dictionary<string, int>> Get()
     {
-        return _database.GetAllWords();
+        return await _database.GetAllWords();
     }
 
     [HttpPost]
-    public void Post([FromBody]Dictionary<string, int> res)
+    public async Task Post([FromBody]Dictionary<string, int> res)
     {
-        _database.InsertAllWords(res);
+       await _database.InsertAllWords(res);
     }
 }
