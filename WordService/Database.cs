@@ -1,6 +1,6 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
-
+using System.Data.Common;
 namespace WordService
 {
     public class Database
@@ -35,39 +35,58 @@ namespace WordService
                 Console.WriteLine($"SQL Execution failed: {ex.Message}");
             }
         }
+        
+        
+        // ExecuteAsync method with proper exception handling and transaction management
+        private async Task ExecuteAsync(DbConnection connection, string sql)
+        {
+            try
+            {
+                using var trans = connection.BeginTransaction();
+                var cmd = connection.CreateCommand();
+                cmd.Transaction = trans;
+                cmd.CommandText = sql;
+                await cmd.ExecuteNonQueryAsync();
+                trans.Commit();
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"SQL Execution failed: {ex.Message}");
+            }
+        }
 
         // Method to delete the database (drop tables)
-        public void DeleteDatabase()
+        public async Task DeleteDatabase()
         {
             foreach (var connection in _coordinator.GetAllConnections())
             {
-              
-                    Execute(connection, "DROP TABLE IF EXISTS Occurrences");
-                    Execute(connection, "DROP TABLE IF EXISTS Words");
-                    Execute(connection, "DROP TABLE IF EXISTS Documents");
+                    
+                   await ExecuteAsync(connection, "DROP TABLE IF EXISTS Occurrences");
+                   await ExecuteAsync(connection, "DROP TABLE IF EXISTS Words");
+                   await ExecuteAsync(connection, "DROP TABLE IF EXISTS Documents");
                 
             }
         }
 
         // Method to recreate the database (recreate tables)
-        public void RecreateDatabase()
+        public async Task RecreateDatabase()
         {
             foreach (var connection in _coordinator.GetAllConnections())
             {
              
-                Execute(connection, "DROP TABLE IF EXISTS Occurrences");
-                Execute(connection, "DROP TABLE IF EXISTS Words");
-                Execute(connection, "DROP TABLE IF EXISTS Documents");
+                await ExecuteAsync(connection, "DROP TABLE IF EXISTS Occurrences");
+                await ExecuteAsync(connection, "DROP TABLE IF EXISTS Words");
+                await ExecuteAsync(connection, "DROP TABLE IF EXISTS Documents");
 
-                Execute(connection, "CREATE TABLE Documents(id INTEGER PRIMARY KEY, url VARCHAR(500))");
-                Execute(connection, "CREATE TABLE Words(id INTEGER PRIMARY KEY, name VARCHAR(500))");
-                Execute(connection, "CREATE TABLE Occurrences(wordId INTEGER, docId INTEGER)");
+                await ExecuteAsync(connection, "CREATE TABLE Documents(id INTEGER PRIMARY KEY, url VARCHAR(500))");
+                await ExecuteAsync(connection, "CREATE TABLE Words(id INTEGER PRIMARY KEY, name VARCHAR(500))");
+                await ExecuteAsync(connection, "CREATE TABLE Occurrences(wordId INTEGER, docId INTEGER)");
             
             }
         }
 
         // Method to insert documents
-        public void InsertDocument(int id, string url)
+        public async Task InsertDocument(int id, string url)
         {
             try
             {
@@ -80,7 +99,7 @@ namespace WordService
                 insertCmd.Parameters.Add(pUrl);
                 insertCmd.Parameters.Add(pId);
 
-                insertCmd.ExecuteNonQuery();
+                await insertCmd.ExecuteNonQueryAsync();
             }
             catch (SqlException ex)
             {
@@ -89,7 +108,7 @@ namespace WordService
         }
 
         // Method to insert words
-        internal void InsertAllWords(Dictionary<string, int> words)
+        internal async Task InsertAllWords(Dictionary<string, int> words)
         {
             foreach (var word in words)
             {
@@ -111,9 +130,9 @@ namespace WordService
 
                     paramName.Value = word.Key;
                     paramId.Value = word.Value;
-                    command.ExecuteNonQuery();
+                    await command.ExecuteNonQueryAsync();
 
-                    transaction.Commit();
+                    await transaction.CommitAsync();
                 }
                 catch (SqlException ex)
                 {
@@ -121,10 +140,11 @@ namespace WordService
                     Console.WriteLine($"Insert All Words failed: {ex.Message}");
                 }
             }
+            
         }
 
         // Method to insert occurrences
-        internal void InsertAllOccurrences(int docId, ISet<int> wordIds)
+        internal async Task InsertAllOccurrences(int docId, ISet<int> wordIds)
         {
             var connection = _coordinator.GetOccurrenceConnection();
             using var transaction = connection.BeginTransaction();
@@ -146,20 +166,20 @@ namespace WordService
                 foreach (var p in wordIds)
                 {
                     paramWordId.Value = p;
-                    command.ExecuteNonQuery();
+                    await command.ExecuteNonQueryAsync();
                 }
 
-                transaction.Commit();
+                await transaction.CommitAsync();
             }
             catch (SqlException ex)
             {
-                transaction.Rollback();
+                await transaction.RollbackAsync();
                 Console.WriteLine($"Insert All Occurrences failed: {ex.Message}");
             }
         }
 
         // Method to get documents containing specific words
-        public Dictionary<int, int> GetDocuments(List<int> wordIds)
+        public async Task<Dictionary<int, int>> GetDocuments(List<int> wordIds)
         {
             var res = new Dictionary<int, int>();
             try
@@ -169,7 +189,7 @@ namespace WordService
                 var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = sql;
 
-                using (var reader = selectCmd.ExecuteReader())
+                using (var reader = await selectCmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())
                     {
@@ -193,7 +213,7 @@ namespace WordService
         }
 
         // Method to get all words
-        public Dictionary<string, int> GetAllWords()
+        public async Task<Dictionary<string, int>> GetAllWords()
         {
             var res = new Dictionary<string, int>();
             try
@@ -204,7 +224,7 @@ namespace WordService
                         var selectCmd = connection.CreateCommand();
                         selectCmd.CommandText = "SELECT * FROM Words";
 
-                        using (var reader = selectCmd.ExecuteReader())
+                        using (var reader = await selectCmd.ExecuteReaderAsync())
                         {
                             while (reader.Read())
                             {
@@ -223,7 +243,7 @@ namespace WordService
         }
 
         // Method to get document details
-        public List<string> GetDocDetails(List<int> docIds)
+        public async Task<List<string>> GetDocDetails(List<int> docIds)
         {
             var res = new List<string>();
             try
@@ -232,7 +252,7 @@ namespace WordService
                 var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = "SELECT * FROM Documents WHERE id IN " + AsString(docIds);
 
-                using (var reader = selectCmd.ExecuteReader())
+                using (var reader = await selectCmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())
                     {
