@@ -9,14 +9,14 @@ public class DbManagementController : ControllerBase
     private readonly Database _database = Database.GetInstance();
     
     [HttpDelete]
-    public void Delete()
+    public async Task Delete()
     {
-        _database.DeleteDatabase();
+        await _database.DeleteDatabase();
     }
 
     [HttpPost]
-    public void Post()
+    public async Task Post()
     {
-        _database.RecreateDatabase();
+       await _database.RecreateDatabase();
     }
 }

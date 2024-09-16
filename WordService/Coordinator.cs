@@ -1,28 +1,29 @@
 using System.Data;
+using System.Data.Common;
 using Microsoft.Data.SqlClient;
 
 namespace WordService;
 
 public class Coordinator
 {
-    private IDictionary<string, IDbConnection> ConnectionCache = new Dictionary<string, IDbConnection>();
+    private IDictionary<string, DbConnection> ConnectionCache = new Dictionary<string, DbConnection>();
     private const string DOCUMENT_DB = "document-db";
     private const string OCCURRENCE_DB = "occurrence-db";
     private const string SHORT_WORD_DB = "short-word-db";
     private const string MEDIUM_WORD_DB = "medium-word-db";
     private const string LONG_WORD_DB = "long-word-db";
 
-    public IDbConnection GetDocumentConnection()
+    public DbConnection GetDocumentConnection()
     {
         return GetConnectionByServerName(DOCUMENT_DB);
     }
 
-    public IDbConnection GetOccurrenceConnection()
+    public DbConnection GetOccurrenceConnection()
     {
         return GetConnectionByServerName(OCCURRENCE_DB);
     }
     
-    public IDbConnection GetWordConnection(string word)
+    public DbConnection GetWordConnection(string word)
     {
         switch (word.Length)
         {
@@ -37,7 +38,7 @@ public class Coordinator
         }
     }
 
-    public IEnumerable<IDbConnection> GetAllConnections()
+    public IEnumerable<DbConnection> GetAllConnections()
     {
         yield return GetDocumentConnection();
         yield return GetOccurrenceConnection();
@@ -47,14 +48,14 @@ public class Coordinator
         }
     }
     
-    public IEnumerable<IDbConnection> GetAllWordConnections()
+    public IEnumerable<DbConnection> GetAllWordConnections()
     {
         yield return GetConnectionByServerName(SHORT_WORD_DB);
         yield return GetConnectionByServerName(MEDIUM_WORD_DB);
         yield return GetConnectionByServerName(LONG_WORD_DB);
     }
 
-    private IDbConnection GetConnectionByServerName(string serverName)
+    private DbConnection GetConnectionByServerName(string serverName)
     {
         if (ConnectionCache.TryGetValue(serverName, out var connection))
         {
