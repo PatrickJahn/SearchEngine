@@ -70,7 +70,7 @@ services:
   seq:
     image: datalust/seq:latest
     ports:
-      - "5341:80" # Exposing Seq on localhost:5341
+      - "5342:80" # Exposing Seq on localhost:5341
     environment:
       ACCEPT_EULA: Y
       SEQ_ADMIN_USERNAME: admin

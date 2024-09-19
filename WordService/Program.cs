@@ -1,6 +1,7 @@
 using Serilog;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Resources;
+using WordService;
 using WordService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,13 +9,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Setup Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
-    .WriteTo.Seq("http://localhost:5341") // Seq running on this address
+    .WriteTo.Seq("http://localhost:5342") // Seq running on this address
     .Enrich.FromLogContext()
     .CreateLogger();
 
 // Use Serilog
 builder.Host.UseSerilog();
-builder.Services.AddSingleton<LoggingService>(); 
+builder.Services.AddSingleton<LoggingService>();
+builder.Services.AddSingleton<Database>();
 // Add OpenTelemetry for tracing
 builder.Services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
 {
