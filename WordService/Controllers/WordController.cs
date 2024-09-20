@@ -41,7 +41,8 @@ public class WordController : ControllerBase
     [HttpPost]
     public IActionResult Post([FromBody] Dictionary<string, int> res)
     {
-        var activity = _loggingService.StartTrace("InsertAllWords");
+        
+        using var activity = _loggingService.StartTrace("Word Post endpoint");
         try
         {
             _loggingService.LogInformation("Inserting all words.");
@@ -54,9 +55,6 @@ public class WordController : ControllerBase
             _loggingService.LogError("Error while inserting words", ex);
             return StatusCode(500, "An error occurred while inserting words.");
         }
-        finally
-        {
-            _loggingService.EndTrace(activity);
-        }
+        
     }
 }

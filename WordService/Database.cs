@@ -126,7 +126,6 @@ namespace WordService
             using var trace = _loggingService.StartTrace("InsertAllWords");
             foreach (var word in words)
             {
-                var activity = _loggingService.StartTrace($"InsertWord: {word.Key}");
                 var connection = _coordinator.GetWordConnection(word.Key);
                 using var transaction = connection.BeginTransaction();
                 try
@@ -157,12 +156,7 @@ namespace WordService
                     _loggingService.LogError($"Insert All Words failed: {word.Key}", ex);
                     throw;
                 }
-                finally
-                {
-                    _loggingService.EndTrace(activity);
-                }
             }
-            _loggingService.EndTrace(trace);
         }
 
         // Method to insert occurrences

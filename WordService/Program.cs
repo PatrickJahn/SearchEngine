@@ -19,17 +19,7 @@ builder.Host.UseSerilog();
 builder.Services.AddSingleton<LoggingService>();
 builder.Services.AddSingleton<Database>();
 // Add OpenTelemetry for tracing
-builder.Services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
-{
-    tracerProviderBuilder
-        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("WordService"))
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddZipkinExporter(options =>
-        {
-            options.Endpoint = new Uri("http://zipkin:9411/api/v2/spans"); // Zipkin 
-        });
-});
+
 
 // Add services to the container.
 builder.Services.AddControllers();

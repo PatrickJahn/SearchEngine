@@ -1,15 +1,32 @@
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+using System.Reflection;
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 namespace WordService.Services
 {
     public class LoggingService
     {
+        private static readonly string ServiceName = Assembly.GetCallingAssembly().GetName().Name ?? "Unknown"; 
         private readonly ILogger<LoggingService> _logger;
-        private static readonly ActivitySource _activitySource = new ActivitySource("WordServiceTracer");
+        private static ActivitySource _activitySource = new ActivitySource(ServiceName);
+        public static TracerProvider _tracerProvider;
 
+            
         public LoggingService(ILogger<LoggingService> logger)
         {
+            _tracerProvider = Sdk.CreateTracerProviderBuilder()
+                .AddAspNetCoreInstrumentation()
+                .AddSource(_activitySource.Name)
+                .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(ServiceName))
+                .AddZipkinExporter(options =>
+                {
+                    options.Endpoint = new Uri("http://zipkin:9411/api/v2/spans"); // Zipkin 
+                })
+                .Build();
+            
             _logger = logger;
         }
 
@@ -27,8 +44,8 @@ namespace WordService.Services
 
         // Start a manual trace using ActivitySource
         public Activity? StartTrace(string operationName)
-        {
-            var activity = _activitySource.StartActivity(operationName, ActivityKind.Internal);
+        {   
+            var activity = _activitySource.StartActivity(operationName);
             if (activity != null)
             {
                 activity.SetTag("operation", operationName);
