@@ -9,7 +9,7 @@ COPY ["WordService/WordService.csproj", "WordService/"]
 RUN dotnet restore "WordService/WordService.csproj"
 COPY . .
 WORKDIR "/src/WordService"
-ENV SEQ_URL=http://localhost:5342
+ENV SEQ_URL=http://localhost:5341
 RUN dotnet build "WordService.csproj" -c Release -o /app/build
 
 FROM build AS publish

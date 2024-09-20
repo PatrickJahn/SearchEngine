@@ -9,8 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Setup Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
-    .WriteTo.Seq("http://localhost:5342") // Seq running on this address
+    .WriteTo.Seq("http://seq:5341") // Seq running on this address
     .Enrich.FromLogContext()
+    .WriteTo.Console()
     .CreateLogger();
 
 // Use Serilog
@@ -26,7 +27,7 @@ builder.Services.AddOpenTelemetry().WithTracing(tracerProviderBuilder =>
         .AddHttpClientInstrumentation()
         .AddZipkinExporter(options =>
         {
-            options.Endpoint = new Uri("http://localhost:9411/api/v2/spans"); // Zipkin 
+            options.Endpoint = new Uri("http://zipkin:9411/api/v2/spans"); // Zipkin 
         });
 });
 
