@@ -1,7 +1,6 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 using WordService.Services;
-
 namespace WordService
 {
     public class Database
@@ -39,9 +38,28 @@ namespace WordService
                 _loggingService.EndTrace(activity);
             }
         }
+        
+        
+        // ExecuteAsync method with proper exception handling and transaction management
+        private async Task ExecuteAsync(DbConnection connection, string sql)
+        {
+            try
+            {
+                using var trans = connection.BeginTransaction();
+                var cmd = connection.CreateCommand();
+                cmd.Transaction = trans;
+                cmd.CommandText = sql;
+                await cmd.ExecuteNonQueryAsync();
+                trans.Commit();
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"SQL Execution failed: {ex.Message}");
+            }
+        }
 
         // Method to delete the database (drop tables)
-        public void DeleteDatabase()
+        public async Task DeleteDatabase()
         {
             using var trace = _loggingService.StartTrace("DeleteDatabase");
             foreach (var connection in _coordinator.GetAllConnections())
@@ -64,7 +82,7 @@ namespace WordService
         }
 
         // Method to recreate the database (recreate tables)
-        public void RecreateDatabase()
+        public async Task RecreateDatabase()
         {
             using var trace = _loggingService.StartTrace("RecreateDatabase");
             foreach (var connection in _coordinator.GetAllConnections())
@@ -91,7 +109,7 @@ namespace WordService
         }
 
         // Method to insert documents
-        public void InsertDocument(int id, string url)
+        public async Task InsertDocument(int id, string url)
         {
             var activity = _loggingService.StartTrace("InsertDocument");
             try
@@ -121,7 +139,7 @@ namespace WordService
         }
 
         // Method to insert words
-        internal void InsertAllWords(Dictionary<string, int> words)
+        internal async Task InsertAllWords(Dictionary<string, int> words)
         {
             using var trace = _loggingService.StartTrace("InsertAllWords");
             foreach (var word in words)
@@ -145,10 +163,12 @@ namespace WordService
 
                     paramName.Value = word.Key;
                     paramId.Value = word.Value;
-                    command.ExecuteNonQuery();
+                    await command.ExecuteNonQueryAsync();
 
-                    transaction.Commit();
+
                     _loggingService.LogInformation($"Word inserted: {word.Key}");
+                    await transaction.CommitAsync();
+
                 }
                 catch (SqlException ex)
                 {
@@ -157,10 +177,11 @@ namespace WordService
                     throw;
                 }
             }
+            
         }
 
         // Method to insert occurrences
-        internal void InsertAllOccurrences(int docId, ISet<int> wordIds)
+        internal async Task InsertAllOccurrences(int docId, ISet<int> wordIds)
         {
             using var trace = _loggingService.StartTrace("InsertAllOccurrences");
             var connection = _coordinator.GetOccurrenceConnection();
@@ -184,7 +205,7 @@ namespace WordService
                 foreach (var p in wordIds)
                 {
                     paramWordId.Value = p;
-                    command.ExecuteNonQuery();
+                    await command.ExecuteNonQueryAsync();
                 }
 
                 transaction.Commit();
@@ -192,7 +213,7 @@ namespace WordService
             }
             catch (SqlException ex)
             {
-                transaction.Rollback();
+                await transaction.RollbackAsync();
                 _loggingService.LogError($"Insert All Occurrences failed for document ID: {docId}", ex);
                 throw;
             }
@@ -203,7 +224,7 @@ namespace WordService
         }
 
         // Method to get documents containing specific words
-        public Dictionary<int, int> GetDocuments(List<int> wordIds)
+        public async Task<Dictionary<int, int>> GetDocuments(List<int> wordIds)
         {
             var res = new Dictionary<int, int>();
             var activity = _loggingService.StartTrace("GetDocuments");
@@ -215,7 +236,7 @@ namespace WordService
                 var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = sql;
 
-                using (var reader = selectCmd.ExecuteReader())
+                using (var reader = await selectCmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())
                     {
@@ -239,7 +260,7 @@ namespace WordService
         }
 
         // Method to get all words
-        public Dictionary<string, int> GetAllWords()
+        public async Task<Dictionary<string, int>> GetAllWords()
         {
             var res = new Dictionary<string, int>();
             var activity = _loggingService.StartTrace("GetAllWords");
@@ -251,7 +272,7 @@ namespace WordService
                     var selectCmd = connection.CreateCommand();
                     selectCmd.CommandText = "SELECT * FROM Words";
 
-                    using (var reader = selectCmd.ExecuteReader())
+                    using (var reader = await selectCmd.ExecuteReaderAsync())
                     {
                         while (reader.Read())
                         {
@@ -276,7 +297,7 @@ namespace WordService
         }
 
         // Method to get document details
-        public List<string> GetDocDetails(List<int> docIds)
+        public async Task<List<string>> GetDocDetails(List<int> docIds)
         {
             var res = new List<string>();
             var activity = _loggingService.StartTrace("GetDocDetails");
@@ -287,7 +308,7 @@ namespace WordService
                 var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = "SELECT * FROM Documents WHERE id IN " + AsString(docIds);
 
-                using (var reader = selectCmd.ExecuteReader())
+                using (var reader = await selectCmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())
                     {
