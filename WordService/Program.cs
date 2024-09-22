@@ -1,8 +1,29 @@
+using Serilog;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Resources;
+using WordService;
+using WordService.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Setup Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .WriteTo.Seq("http://seq:5341") // Seq running on this address
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
 
+// Use Serilog
+builder.Host.UseSerilog();
+builder.Services.AddSingleton<LoggingService>();
+builder.Services.AddSingleton<Database>();
+// Add OpenTelemetry for tracing
+
+
+// Add services to the container.
 builder.Services.AddControllers();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
