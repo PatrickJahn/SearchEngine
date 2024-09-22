@@ -8,13 +8,13 @@ services:
       - mssql-data-short:/var/opt/mssql
   
   medium-word-db:
-      image: mcr.microsoft.com/azure-sql-edge:latest
-      environment:
-        MSSQL_SA_PASSWORD: "SuperSecret7!"
-        ACCEPT_EULA: "Y"
-      volumes:
-        - mssql-data-medium:/var/opt/mssql
-        
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      MSSQL_SA_PASSWORD: "SuperSecret7!"
+      ACCEPT_EULA: "Y"
+    volumes:
+      - mssql-data-medium:/var/opt/mssql
+  
   long-word-db:
     image: mcr.microsoft.com/azure-sql-edge:latest
     environment:
@@ -30,7 +30,7 @@ services:
       ACCEPT_EULA: "Y"
     volumes:
       - mssql-document:/var/opt/mssql
-      
+  
   occurrence-db:
     image: mcr.microsoft.com/azure-sql-edge:latest
     environment:
@@ -52,7 +52,7 @@ services:
       dockerfile: ConsoleSearch/Dockerfile
     depends_on:
       - word-service
-  
+
   word-service:
     build:
       context: .
@@ -65,11 +65,30 @@ services:
       - occurrence-db
     deploy:
       replicas: 2
-    
+
+  # Adding Seq for logging
+  seq:
+    image: datalust/seq:latest
+    ports:
+      - 5341:5341 # Exposing Seq on localhost:534
+      - 5342:80 # Exposing Seq on localhost:5341
+    environment:
+      ACCEPT_EULA: Y
+    volumes:
+      - seq-data:/data
+
+  # Adding Zipkin for tracing
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - 9411:9411 # Exposing Zipkin on localhost:9411
+
+
 
 volumes:
   mssql-data-short:
   mssql-data-medium:
   mssql-data-long:
   mssql-document:
-  mssql-occurrence: 
+  mssql-occurrence:
+  seq-data: # Volume for Seq data
