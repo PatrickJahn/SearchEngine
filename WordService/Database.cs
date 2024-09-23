@@ -1,24 +1,22 @@
 using System.Data;
+using Logging;
 using Microsoft.Data.SqlClient;
-using WordService.Services;
 
 namespace WordService
 {
     public class Database
     {
         private readonly Coordinator _coordinator = new();
-        private readonly LoggingService _loggingService;
 
-        // Inject LoggingService through the constructor
-        public Database(LoggingService loggingService)
+        // Inject Logging through the constructor
+        public Database()
         {
-            _loggingService = loggingService;
         }
 
         // Execute method with proper exception handling and transaction management
         private void Execute(IDbConnection connection, string sql)
         {
-            var activity = _loggingService.StartTrace($"Executing SQL: {sql}");
+            using var activity = LoggingService._activitySource.StartActivity();
             try
             {
                 using var trans = connection.BeginTransaction();
@@ -27,51 +25,47 @@ namespace WordService
                 cmd.CommandText = sql;
                 cmd.ExecuteNonQuery();
                 trans.Commit();
-                _loggingService.LogInformation($"SQL executed successfully: {sql}");
+                LoggingService.Log.Information($"SQL executed successfully: {sql}");
             }
             catch (SqlException ex)
             {
-                _loggingService.LogError($"SQL Execution failed: {sql}", ex);
+                LoggingService.Log.Information($"SQL Execution failed: {sql}", ex);
                 throw;
             }
-            finally
-            {
-                _loggingService.EndTrace(activity);
-            }
+           
         }
 
         // Method to delete the database (drop tables)
         public void DeleteDatabase()
         {
-            using var trace = _loggingService.StartTrace("DeleteDatabase");
+            using var trace =  LoggingService._activitySource.StartActivity("DeleteDatabase");
             foreach (var connection in _coordinator.GetAllConnections())
             {
                 try
                 {
-                    _loggingService.LogInformation("Dropping tables in database.");
+                    LoggingService.Log.Information("Dropping tables in database.");
                     Execute(connection, "DROP TABLE IF EXISTS Occurrences");
                     Execute(connection, "DROP TABLE IF EXISTS Words");
                     Execute(connection, "DROP TABLE IF EXISTS Documents");
-                    _loggingService.LogInformation("Tables dropped successfully.");
+                    LoggingService.Log.Information("Tables dropped successfully.");
                 }
                 catch (Exception ex)
                 {
-                    _loggingService.LogError("Error while deleting database", ex);
+                    LoggingService.Log.Error("Error while deleting database", ex);
                     throw;
                 }
             }
-            _loggingService.EndTrace(trace);
         }
 
         // Method to recreate the database (recreate tables)
         public void RecreateDatabase()
         {
-            using var trace = _loggingService.StartTrace("RecreateDatabase");
+            using var trace = LoggingService._activitySource.StartActivity("RecreateDatabase");
             foreach (var connection in _coordinator.GetAllConnections())
             {
                 try
                 {
-                    _loggingService.LogInformation("Recreating tables in database.");
+                     LoggingService.Log.Information("Recreating tables in database.");
                     Execute(connection, "DROP TABLE IF EXISTS Occurrences");
                     Execute(connection, "DROP TABLE IF EXISTS Words");
                     Execute(connection, "DROP TABLE IF EXISTS Documents");
@@ -79,24 +73,23 @@ namespace WordService
                     Execute(connection, "CREATE TABLE Documents(id INTEGER PRIMARY KEY, url VARCHAR(500))");
                     Execute(connection, "CREATE TABLE Words(id INTEGER PRIMARY KEY, name VARCHAR(500))");
                     Execute(connection, "CREATE TABLE Occurrences(wordId INTEGER, docId INTEGER)");
-                    _loggingService.LogInformation("Tables recreated successfully.");
+                     LoggingService.Log.Information("Tables recreated successfully.");
                 }
                 catch (Exception ex)
                 {
-                    _loggingService.LogError("Error while recreating database", ex);
+                     LoggingService.Log.Error("Error while recreating database", ex);
                     throw;
                 }
             }
-            _loggingService.EndTrace(trace);
         }
 
         // Method to insert documents
         public void InsertDocument(int id, string url)
         {
-            var activity = _loggingService.StartTrace("InsertDocument");
+            using var activity = LoggingService._activitySource.StartActivity("InsertDocument");
             try
             {
-                _loggingService.LogInformation($"Inserting document with ID: {id} and URL: {url}");
+                 LoggingService.Log.Information($"Inserting document with ID: {id} and URL: {url}");
                 var connection = _coordinator.GetDocumentConnection();
                 var insertCmd = connection.CreateCommand();
                 insertCmd.CommandText = "INSERT INTO Documents(id, url) VALUES(@id,@url)";
@@ -107,30 +100,27 @@ namespace WordService
                 insertCmd.Parameters.Add(pId);
 
                 insertCmd.ExecuteNonQuery();
-                _loggingService.LogInformation("Document inserted successfully.");
+                 LoggingService.Log.Information("Document inserted successfully.");
             }
             catch (SqlException ex)
             {
-                _loggingService.LogError($"Insert Document failed with ID: {id}", ex);
+                 LoggingService.Log.Error($"Insert Document failed with ID: {id}", ex);
                 throw;
             }
-            finally
-            {
-                _loggingService.EndTrace(activity);
-            }
+           
         }
 
         // Method to insert words
         internal void InsertAllWords(Dictionary<string, int> words)
         {
-            using var trace = _loggingService.StartTrace("InsertAllWords");
+            using var trace = LoggingService._activitySource.StartActivity("InsertAllWords");
             foreach (var word in words)
             {
                 var connection = _coordinator.GetWordConnection(word.Key);
                 using var transaction = connection.BeginTransaction();
                 try
                 {
-                    _loggingService.LogInformation($"Inserting word: {word.Key}");
+                     LoggingService.Log.Information($"Inserting word: {word.Key}");
                     var command = connection.CreateCommand();
                     command.Transaction = transaction;
                     command.CommandText = @"INSERT INTO Words(id, name) VALUES(@id,@name)";
@@ -148,12 +138,12 @@ namespace WordService
                     command.ExecuteNonQuery();
 
                     transaction.Commit();
-                    _loggingService.LogInformation($"Word inserted: {word.Key}");
+                     LoggingService.Log.Information($"Word inserted: {word.Key}");
                 }
                 catch (SqlException ex)
                 {
                     transaction.Rollback();
-                    _loggingService.LogError($"Insert All Words failed: {word.Key}", ex);
+                     LoggingService.Log.Error($"Insert All Words failed: {word.Key}", ex);
                     throw;
                 }
             }
@@ -162,12 +152,12 @@ namespace WordService
         // Method to insert occurrences
         internal void InsertAllOccurrences(int docId, ISet<int> wordIds)
         {
-            using var trace = _loggingService.StartTrace("InsertAllOccurrences");
+            using var trace = LoggingService._activitySource.StartActivity("InsertAllOccurrences");
             var connection = _coordinator.GetOccurrenceConnection();
             using var transaction = connection.BeginTransaction();
             try
             {
-                _loggingService.LogInformation($"Inserting occurrences for document ID: {docId}");
+                 LoggingService.Log.Information($"Inserting occurrences for document ID: {docId}");
                 var command = connection.CreateCommand();
                 command.Transaction = transaction;
                 command.CommandText = @"INSERT INTO Occurrences(wordId, docId) VALUES(@wordId,@docId)";
@@ -188,28 +178,25 @@ namespace WordService
                 }
 
                 transaction.Commit();
-                _loggingService.LogInformation($"Occurrences inserted for document ID: {docId}");
+                 LoggingService.Log.Information($"Occurrences inserted for document ID: {docId}");
             }
             catch (SqlException ex)
             {
                 transaction.Rollback();
-                _loggingService.LogError($"Insert All Occurrences failed for document ID: {docId}", ex);
+                 LoggingService.Log.Error($"Insert All Occurrences failed for document ID: {docId}", ex);
                 throw;
             }
-            finally
-            {
-                _loggingService.EndTrace(trace);
-            }
+           
         }
 
         // Method to get documents containing specific words
         public Dictionary<int, int> GetDocuments(List<int> wordIds)
         {
             var res = new Dictionary<int, int>();
-            var activity = _loggingService.StartTrace("GetDocuments");
+            using var activity = LoggingService._activitySource.StartActivity("GetDocuments");
             try
             {
-                _loggingService.LogInformation($"Retrieving documents for word IDs: {string.Join(',', wordIds)}");
+                 LoggingService.Log.Information($"Retrieving documents for word IDs: {string.Join(',', wordIds)}");
                 var connection = _coordinator.GetOccurrenceConnection();
                 var sql = @"SELECT docId, COUNT(wordId) AS count FROM Occurrences WHERE wordId IN " + AsString(wordIds) + " GROUP BY docId ORDER BY count DESC;";
                 var selectCmd = connection.CreateCommand();
@@ -224,17 +211,14 @@ namespace WordService
                         res.Add(docId, count);
                     }
                 }
-                _loggingService.LogInformation("Documents retrieved successfully.");
+                 LoggingService.Log.Information("Documents retrieved successfully.");
             }
             catch (SqlException ex)
             {
-                _loggingService.LogError("Get Documents failed", ex);
+                 LoggingService.Log.Error("Get Documents failed", ex);
                 throw;
             }
-            finally
-            {
-                _loggingService.EndTrace(activity);
-            }
+           
             return res;
         }
 
@@ -242,12 +226,12 @@ namespace WordService
         public Dictionary<string, int> GetAllWords()
         {
             var res = new Dictionary<string, int>();
-            var activity = _loggingService.StartTrace("GetAllWords");
+            using var activity = LoggingService._activitySource.StartActivity("GetAllWords");
             try
             {
                 foreach (var connection in _coordinator.GetAllWordConnections())
                 {
-                    _loggingService.LogInformation("Retrieving all words from database.");
+                     LoggingService.Log.Information("Retrieving all words from database.");
                     var selectCmd = connection.CreateCommand();
                     selectCmd.CommandText = "SELECT * FROM Words";
 
@@ -261,17 +245,14 @@ namespace WordService
                         }
                     }
                 }
-                _loggingService.LogInformation("Words retrieved successfully.");
+                 LoggingService.Log.Information("Words retrieved successfully.");
             }
             catch (SqlException ex)
             {
-                _loggingService.LogError("Get All Words failed", ex);
+                 LoggingService.Log.Error("Get All Words failed", ex);
                 throw;
             }
-            finally
-            {
-                _loggingService.EndTrace(activity);
-            }
+           
             return res;
         }
 
@@ -279,10 +260,10 @@ namespace WordService
         public List<string> GetDocDetails(List<int> docIds)
         {
             var res = new List<string>();
-            var activity = _loggingService.StartTrace("GetDocDetails");
+            using var activity = LoggingService._activitySource.StartActivity("GetDocDetails");
             try
             {
-                _loggingService.LogInformation($"Retrieving document details for document IDs: {string.Join(',', docIds)}");
+                 LoggingService.Log.Information($"Retrieving document details for document IDs: {string.Join(',', docIds)}");
                 var connection = _coordinator.GetDocumentConnection();
                 var selectCmd = connection.CreateCommand();
                 selectCmd.CommandText = "SELECT * FROM Documents WHERE id IN " + AsString(docIds);
@@ -295,17 +276,14 @@ namespace WordService
                         res.Add(url);
                     }
                 }
-                _loggingService.LogInformation("Document details retrieved successfully.");
+                 LoggingService.Log.Information("Document details retrieved successfully.");
             }
             catch (SqlException ex)
             {
-                _loggingService.LogError("Get Doc Details failed", ex);
+                 LoggingService.Log.Error("Get Doc Details failed", ex);
                 throw;
             }
-            finally
-            {
-                _loggingService.EndTrace(activity);
-            }
+           
             return res;
         }
 
