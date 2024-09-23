@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using WordService.Services;
 using System.Diagnostics;
+using Logging;
 
 namespace WordService.Controllers;
 
@@ -9,57 +9,47 @@ namespace WordService.Controllers;
 public class DbManagementController : ControllerBase
 {
     private readonly Database _database;
-    private readonly LoggingService _loggingService;
 
-    public DbManagementController(Database database, LoggingService loggingService)
+    public DbManagementController(Database database)
     {
         _database = database;
-        _loggingService = loggingService;
     }
 
     [HttpDelete]
     public IActionResult Delete()
     {
-        var activity = _loggingService.StartTrace("Delete Database");
+        using var activity = LoggingService._activitySource.StartActivity("Delete Database");
         try
         {
-            _loggingService.LogInformation("Database deletion initiated.");
+            LoggingService.Log.Information("Database deletion initiated.");
             _database.DeleteDatabase();
-            _loggingService.LogInformation("Database deletion completed.");
+            LoggingService.Log.Information("Database deletion completed.");
             return Ok("Database deleted successfully.");
         }
         catch (Exception ex)
         {
-            _loggingService.LogError("Error while deleting database", ex);
-            _loggingService.EndTrace(activity, ex);
+            LoggingService.Log.Error("Error while deleting database", ex);
             return StatusCode(500, "An error occurred while deleting the database.");
         }
-        finally
-        {
-            _loggingService.EndTrace(activity);
-        }
+       
     }
 
     [HttpPost]
     public IActionResult Post()
     {
-        var activity = _loggingService.StartTrace("Recreate Database");
+        using var activity = LoggingService._activitySource.StartActivity("Recreate Database");
         try
         {
-            _loggingService.LogInformation("Recreating database.");
+            LoggingService.Log.Information("Recreating database.");
             _database.RecreateDatabase();
-            _loggingService.LogInformation("Database recreation completed.");
+            LoggingService.Log.Information("Database recreation completed.");
             return Ok("Database recreated successfully.");
         }
         catch (Exception ex)
         {
-            _loggingService.LogError("Error while recreating database", ex);
-            _loggingService.EndTrace(activity, ex);
+            LoggingService.Log.Error("Error while recreating database", ex);
             return StatusCode(500, "An error occurred while recreating the database.");
         }
-        finally
-        {
-            _loggingService.EndTrace(activity);
-        }
+       
     }
 }

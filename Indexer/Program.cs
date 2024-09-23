@@ -2,6 +2,7 @@
 using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
+using Logging;
 
 namespace Indexer
 {
@@ -9,6 +10,7 @@ namespace Indexer
     {
         static void Main(string[] args)
         {
+
             Console.WriteLine($"Current Directory: {Directory.GetDirectoryRoot("/")}");
             var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
 
