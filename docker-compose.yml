@@ -63,6 +63,8 @@ services:
       - long-word-db
       - document-db
       - occurrence-db
+      - seq
+      - zipkin
     deploy:
       replicas: 2
 

@@ -15,11 +15,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.0-preview1.24240.8" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Serilog" Version="4.0.2-dev-02226" />
     <PackageReference Include="SQLitePCLRaw.core" Version="2.1.10-pre20240828193256" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Data.SqlClient">
       <HintPath>..\Indexer\bin\Debug\net7.0\Microsoft.Data.SqlClient.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Logging\Logging.csproj" />
   </ItemGroup>
 </Project>

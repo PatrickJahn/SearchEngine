@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using Logging;
 using Microsoft.AspNetCore.Mvc;
-using WordService.Services;
+using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
 
 namespace WordService.Controllers;
 
@@ -8,77 +11,94 @@ namespace WordService.Controllers;
 public class DocumentController : ControllerBase
 {
     private readonly Database _database;
-    private readonly LoggingService _loggingService;
 
-    public DocumentController(Database database, LoggingService loggingService)
+    public DocumentController(Database database)
     {
         _database = database;
-        _loggingService = loggingService;
     }
 
     [HttpGet("GetByDocIds")]
     public IActionResult GetByDocIds([FromQuery] List<int> docIds)
     {
-        var activity = _loggingService.StartTrace("GetByDocIds");
-        try
+        var propagator = new TraceContextPropagator();
+        
+        var parentContext = propagator.Extract(default, Request, (r, key) =>
         {
-            _loggingService.LogInformation($"Retrieving documents by IDs: {string.Join(",", docIds)}");
+            return new List<string>( new [] {r.Headers.ContainsKey(key) ? r.Headers[key].ToString() : string.Empty});
+        });
+
+        Baggage.Current = parentContext.Baggage;
+
+        using var activity = LoggingService._activitySource.StartActivity("GetByWordIds Document endpoint", ActivityKind.Consumer, parentContext.ActivityContext);          try
+        {
+            LoggingService.Log.Information($"Retrieving documents by IDs: {string.Join(",", docIds)}");
             var result = _database.GetDocDetails(docIds);
-            _loggingService.LogInformation("Documents retrieved successfully.");
+            LoggingService.Log.Information("Documents retrieved successfully.");
             return Ok(result);
         }
         catch (Exception ex)
         {
-            _loggingService.LogError("Error while retrieving documents by IDs", ex);
+            LoggingService.Log.Error("Error while retrieving documents by IDs", ex);
             return StatusCode(500, "An error occurred while retrieving the documents.");
         }
-        finally
-        {
-            _loggingService.EndTrace(activity);
-        }
+      
     }
     
     [HttpGet("GetByWordIds")]
     public IActionResult GetByWordIds([FromQuery] List<int> wordIds)
     {
-        var activity = _loggingService.StartTrace("GetByWordIds");
+        var propagator = new TraceContextPropagator();
+        
+        var parentContext = propagator.Extract(default, Request, (r, key) =>
+        {
+            return new List<string>( new [] {r.Headers.ContainsKey(key) ? r.Headers[key].ToString() : string.Empty});
+        });
+
+        Baggage.Current = parentContext.Baggage;
+
+        using var activity = LoggingService._activitySource.StartActivity("GetByWordIds Document endpoint", ActivityKind.Consumer, parentContext.ActivityContext);       
         try
         {
-            _loggingService.LogInformation($"Retrieving documents by word IDs: {string.Join(",", wordIds)}");
+            LoggingService.Log.Information($"Retrieving documents by word IDs: {string.Join(",", wordIds)}");
             var result = _database.GetDocuments(wordIds);
-            _loggingService.LogInformation("Documents retrieved successfully.");
+            LoggingService.Log.Information("Documents retrieved successfully.");
             return Ok(result);
         }
         catch (Exception ex)
         {
-            _loggingService.LogError("Error while retrieving documents by word IDs", ex);
+            LoggingService.Log.Error("Error while retrieving documents by word IDs", ex);
             return StatusCode(500, "An error occurred while retrieving the documents.");
         }
-        finally
-        {
-            _loggingService.EndTrace(activity);
-        }
+       
     }
 
     [HttpPost]
     public IActionResult Post(int id, string url)
     {
-        var activity = _loggingService.StartTrace("InsertDocument");
+        
+        var propagator = new TraceContextPropagator();
+        
+        var parentContext = propagator.Extract(default, Request, (r, key) =>
+        {
+            LoggingService.Log.Information(key + " : " + r.Headers[key].ToString());
+            return new List<string>() {r.Headers.ContainsKey(key) ? r.Headers[key].ToString() : string.Empty};
+        });
+
+        Baggage.Current = parentContext.Baggage;
+
+        using var activity = LoggingService._activitySource.StartActivity("Insert documnet endpoint", ActivityKind.Consumer, parentContext.ActivityContext);
         try
         {
-            _loggingService.LogInformation($"Inserting document with ID: {id} and URL: {url}");
+            LoggingService.Log.Information($"Calling database to insert documnet");
             _database.InsertDocument(id, url);
-            _loggingService.LogInformation("Document inserted successfully.");
+            LoggingService.Log.Information("Document inserted successfully.");
             return Ok("Document inserted successfully.");
         }
         catch (Exception ex)
         {
-            _loggingService.LogError("Error while inserting document", ex);
+            LoggingService.Log.Error("Error while inserting document", ex);
             return StatusCode(500, "An error occurred while inserting the document.");
         }
-        finally
-        {
-            _loggingService.EndTrace(activity);
-        }
+       
     }
 }
